@@ -6,121 +6,279 @@ const {
   calculateDiscount,
 } = require("./calculationService");
 
+
 let transactionHistory = [];
 
-// Save transaction to Supabase
+
+// Save Transaction
 async function saveTransaction(data) {
-  if (!Array.isArray(data.cart) || data.cart.length === 0) {
+
+  if (!data.cart || !Array.isArray(data.cart) || data.cart.length === 0) {
     throw new Error("Cannot save transaction: Cart is invalid.");
   }
 
-  const cart = data.cart.map((item) => ({
-    ...item,
-    price: Number(item.price || 0),
-    quantity: Number(item.quantity || 1),
-  }));
 
-  // Backend calculation
-  const subtotal = calculateSubtotal(cart);
-  const discountType = data.discountType || "none";
-  const discountValue = Number(data.discountValue || 0);
+  const subtotal = calculateSubtotal(data.cart);
 
-  const discountAmount = calculateDiscount(
+
+  const discount = calculateDiscount(
     subtotal,
-    discountType,
-    discountValue
+    data.discountType,
+    data.discountValue
   );
 
-  const totalAmount = subtotal - discountAmount;
-  const transactionNumber = `TXN-${Date.now()}`;
 
   const transaction = {
-    transaction_number: transactionNumber,
-    idempotency_key: crypto.randomUUID(),
-    subtotal,
-    discount: discountAmount,
-    total: totalAmount,
-    payment_method: data.paymentMethod || "CASH",
-    cash_received: Number(data.cashReceived || 0),
-    change_amount: Number(data.changeAmount || 0),
-    customer_count: Number(data.customerCount || 1),
-    special_instructions: data.specialInstructions || "",
-    discount_type: discountType,
-    discount_value: discountValue,
-    cart,
+
+    transaction_number:
+      `TXN-${Date.now()}`,
+
+    idempotency_key:
+      crypto.randomUUID(),
+
+
+    customer_count:
+      data.customerCount || 1,
+
+
+    cart:
+      data.cart.map(item => ({
+        ...item,
+        price: Number(item.price),
+        quantity: Number(item.quantity)
+      })),
+
+
+    subtotal:
+      Number(subtotal),
+
+
+    discount:
+      Number(discount),
+
+
+    total:
+      Number(subtotal - discount),
+
+
+    discount_type:
+      data.discountType || "none",
+
+
+    discount_value:
+      Number(data.discountValue || 0),
+
+
+    special_instructions:
+      data.specialInstructions || null,
+
+
+    payment_method:
+      data.paymentMethod || "CASH",
+
+
+    cash_received:
+      Number(data.cashReceived || 0),
+
+
+    change_amount:
+      Number(data.changeAmount || 0),
+
+
+    created_at:
+      new Date().toISOString()
+
   };
 
-  const { data: savedTransaction, error } = await supabase
-    .from("transactions")
-    .insert([transaction])
-    .select()
-    .single();
 
-  if (error) {
-    throw error;
+
+  // Save to Supabase if available
+
+  if (supabase && typeof supabase.from === "function") {
+
+    const { data: saved, error } =
+      await supabase
+        .from("transactions")
+        .insert(transaction)
+        .select()
+        .single();
+
+
+    if(error){
+      throw error;
+    }
+
+
+    return saved;
+
   }
 
-  transactionHistory.unshift(savedTransaction);
 
-  return savedTransaction;
+
+  // Test fallback
+
+  transactionHistory.push(transaction);
+
+
+  return transaction;
+
 }
 
-// Get transactions from Supabase
-async function getTransactionHistory() {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .order("created_at", {
-      ascending: false,
-    });
 
-  if (error) {
-    throw error;
+
+
+// Get History
+async function getTransactionHistory(){
+
+
+  if(supabase && typeof supabase.from === "function"){
+
+
+    const {data,error} =
+      await supabase
+      .from("transactions")
+      .select("*")
+      .order(
+        "created_at",
+        {
+          ascending:false
+        }
+      );
+
+
+    if(error){
+      throw error;
+    }
+
+
+    return data;
+
   }
 
-  return data;
+
+
+  return transactionHistory.sort(
+    (a,b)=>
+      new Date(b.created_at) -
+      new Date(a.created_at)
+  );
+
 }
 
-// Get transaction by transaction number
-async function getTransactionById(id) {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("transaction_number", id)
-    .single();
 
-  if (error || !data) {
-    return undefined;
+
+
+// Get Transaction By ID
+async function getTransactionById(id){
+
+
+  if(supabase && typeof supabase.from === "function"){
+
+
+    const {data,error} =
+      await supabase
+      .from("transactions")
+      .select("*")
+      .eq(
+        "transaction_number",
+        id
+      )
+      .single();
+
+
+    if(error){
+      return undefined;
+    }
+
+
+    return data;
+
   }
 
-  return data;
+
+
+  return transactionHistory.find(
+    transaction =>
+      transaction.transaction_number === id
+  );
+
 }
 
-// Receipt formatter
-function formatReceipt(transaction) {
+
+
+
+// Format Receipt
+function formatReceipt(transaction){
+
+
   return {
-    receiptId: transaction.transaction_number,
-    createdAt: transaction.created_at,
-    customerCount: transaction.customer_count,
-    items: transaction.cart,
-    subtotal: transaction.subtotal,
-    discountType: transaction.discount_type,
-    discountValue: transaction.discount_value,
-    discountAmount: transaction.discount,
-    totalAmount: transaction.total,
-    specialInstructions: transaction.special_instructions,
+
+    receiptId:
+      transaction.transaction_number,
+
+
+    createdAt:
+      transaction.created_at,
+
+
+    customerCount:
+      transaction.customer_count,
+
+
+    items:
+      transaction.cart,
+
+
+    subtotal:
+      transaction.subtotal,
+
+
+    discountType:
+      transaction.discount_type,
+
+
+    discountValue:
+      transaction.discount_value,
+
+
+    discountAmount:
+      transaction.discount,
+
+
+    totalAmount:
+      transaction.total,
+
+
+    specialInstructions:
+      transaction.special_instructions
+
   };
+
 }
 
-// Used for tests only
-function clearHistory() {
+
+
+
+// Test helper
+function clearHistory(){
+
   transactionHistory = [];
+
 }
+
+
+
 
 module.exports = {
+
   saveTransaction,
+
   getTransactionHistory,
+
   getTransactionById,
+
   formatReceipt,
-  clearHistory,
+
+  clearHistory
+
 };
