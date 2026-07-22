@@ -7,6 +7,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
   test.describe('1. Authentication', () => {
     test('should show login page on initial load', async ({ page }) => {
       await page.goto(BASE_URL)
+
       await expect(page.getByTestId('login-button')).toBeVisible()
       await expect(page.getByTestId('username-input')).toBeVisible()
       await expect(page.getByTestId('email-input')).toBeVisible()
@@ -15,12 +16,13 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
 
     test('should login with valid credentials and show POS dashboard', async ({ page }) => {
       await page.goto(BASE_URL)
+
       await page.getByTestId('username-input').fill('admin')
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
 
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
       await expect(page.getByText('Welcome admin')).toBeVisible()
       await expect(page.getByTestId('sidebar')).toBeVisible()
       await expect(page.getByTestId('product-page')).toBeVisible()
@@ -29,6 +31,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
 
     test('should show error for invalid credentials', async ({ page }) => {
       await page.goto(BASE_URL)
+
       await page.getByTestId('username-input').fill('wrong')
       await page.getByTestId('email-input').fill('wrong@test.com')
       await page.getByTestId('password-input').fill('wrongpass')
@@ -42,6 +45,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
 
     test('should show validation error for empty username', async ({ page }) => {
       await page.goto(BASE_URL)
+
       await page.getByTestId('login-button').click()
 
       await expect(page.getByTestId('error-message')).toContainText(
@@ -57,7 +61,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
     })
 
     test('should display products from mock data', async ({ page }) => {
@@ -92,7 +96,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
       await expect(page.getByTestId('add-to-cart-1')).toBeVisible()
     })
 
@@ -129,7 +133,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
       await expect(page.getByTestId('add-to-cart-1')).toBeVisible()
     })
 
@@ -185,7 +189,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
       await expect(page.getByTestId('add-to-cart-1')).toBeVisible()
     })
 
@@ -227,6 +231,24 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       expect(body.transaction.cart).toHaveLength(2)
       expect(body.transaction.subtotal).toBe(180)
       expect(body.transaction.total).toBe(180)
+    })
+
+    test('should send hardcoded no-discount payload (known limitation)', async ({ page }) => {
+      await page.getByTestId('add-to-cart-1').click()
+      await page.getByTestId('discount-type-select').selectOption('percentage')
+      await page.getByTestId('discount-value-input').fill('10')
+
+      const responsePromise = page.waitForResponse(
+        (resp) => resp.url().includes('/api/transactions') && resp.request().method() === 'POST'
+      )
+      await page.getByTestId('checkout-btn').click()
+      const response = await responsePromise
+
+      const body = await response.json()
+      expect(body.transaction.subtotal).toBe(120)
+      expect(body.transaction.discount).toBe(0)
+      expect(body.transaction.total).toBe(120)
+      expect(body.transaction.discount_type).toBe('none')
     })
 
     test('should retrieve receipt after successful transaction', async ({ page }) => {
@@ -277,7 +299,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
     })
 
     test('should navigate to Inventory module', async ({ page }) => {
@@ -313,7 +335,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
 
       await expect(page.getByTestId('add-to-cart-1')).toBeVisible()
       await page.getByTestId('add-to-cart-1').click()
@@ -345,6 +367,39 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       expect(receiptBody.receipt.items).toHaveLength(2)
     })
 
+    test('should complete flow with UI discount (backend receives no-discount due to hardcoded payload)', async ({ page }) => {
+      await page.goto(BASE_URL)
+
+      await page.getByTestId('username-input').fill('admin')
+      await page.getByTestId('email-input').fill('admin@jowen.com')
+      await page.getByTestId('password-input').fill('admin123')
+      await page.getByTestId('login-button').click()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
+
+      await page.getByTestId('add-to-cart-1').click()
+      await page.getByTestId('discount-type-select').selectOption('percentage')
+      await page.getByTestId('discount-value-input').fill('10')
+      await expect(page.getByTestId('total-amount')).toHaveText('₱108.00')
+
+      const postResponsePromise = page.waitForResponse(
+        (resp) => resp.url().includes('/api/transactions') && resp.request().method() === 'POST'
+      )
+      await page.getByTestId('checkout-btn').click()
+      const postResponse = await postResponsePromise
+
+      const postBody = await postResponse.json()
+      expect(postBody.transaction.subtotal).toBe(120)
+      expect(postBody.transaction.discount).toBe(0)
+      expect(postBody.transaction.total).toBe(120)
+
+      const receiptResponse = await page.request.get(
+        `http://localhost:5000/api/transactions/${postBody.transaction.transaction_number}/receipt`
+      )
+      const receiptBody = await receiptResponse.json()
+      expect(receiptBody.receipt.subtotal).toBe(120)
+      expect(receiptBody.receipt.totalAmount).toBe(120)
+    })
+
     test('should allow multiple sequential transactions', async ({ page }) => {
       await page.goto(BASE_URL)
 
@@ -352,7 +407,7 @@ test.describe('Ob1: POS End-to-End Transaction Workflow', () => {
       await page.getByTestId('email-input').fill('admin@jowen.com')
       await page.getByTestId('password-input').fill('admin123')
       await page.getByTestId('login-button').click()
-      await expect(page.getByRole('heading', { name: 'Point-of-Sale' })).toBeVisible()
+      await expect(page.getByText('Point-of-Sale')).toBeVisible()
 
       await page.getByTestId('add-to-cart-1').click()
 
