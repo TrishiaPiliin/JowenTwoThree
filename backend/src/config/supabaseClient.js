@@ -1,22 +1,17 @@
 const { createClient } = require("@supabase/supabase-js");
 
-
 let supabase = null;
 
-
-if(
- process.env.SUPABASE_URL &&
- process.env.SUPABASE_KEY
-){
-
- supabase = createClient(
-   process.env.SUPABASE_URL,
-   process.env.SUPABASE_KEY
- );
-
+if (
+  process.env.SUPABASE_URL &&
+  process.env.SUPABASE_KEY
+) {
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+  );
 }
 
-
 module.exports = {
- supabase
+  supabase,
 };

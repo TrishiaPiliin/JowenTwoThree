@@ -1,25 +1,25 @@
 import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
+  plugins: [react()],
+
   test: {
     environment: "jsdom",
     globals: true,
-
-    setupFiles: [
-      "./Inventory/src/setupTests.js"
-    ],
+    setupFiles: ["./tests/setup.js"],
 
     exclude: [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/coverage/**",
+      "e2e/**",
+      "tests/e2e/**",
+      "playwright-report/**",
+      "test-results/**",
+      "node_modules/**"
+    ],
 
-      // Ignore Playwright tests
-      "**/POS/e2e/**",
-
-      // Ignore Playwright outputs
-      "**/playwright-report/**",
-      "**/test-results/**"
-    ]
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "json", "html"]
+    }
   }
 });
