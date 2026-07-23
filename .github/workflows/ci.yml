@@ -4,15 +4,15 @@ on:
   push:
     branches: ["**"]
   pull_request:
-    branches: 
-    - "main"
+    branches:
+      - main
 
 jobs:
   # ─────────────────────────────────────────────
-  # 1. BACKEND
+  # Backend
   # ─────────────────────────────────────────────
   backend-tests:
-    name: "Backend Tests"
+    name: Backend Tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -20,36 +20,29 @@ jobs:
         working-directory: backend
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: 20
+          cache: npm
           cache-dependency-path: backend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install backend dependencies
         run: npm ci
 
-      - name: Run unit tests
-        run: npm run test
+      - name: Run backend tests
+        run: npm test
         env:
           NODE_ENV: test
-
-      - name: Upload backend coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: backend-coverage
-          path: backend/coverage/
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
   # ─────────────────────────────────────────────
-  # 2. FRONTEND
+  # Frontend (Inventory)
   # ─────────────────────────────────────────────
   frontend-tests:
-    name: "Frontend Tests"
+    name: Frontend Tests
     runs-on: ubuntu-latest
 
     defaults:
@@ -57,120 +50,92 @@ jobs:
         working-directory: frontend
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: 20
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
+      - name: Install frontend dependencies
         run: npm ci
 
-      - name: Run component tests
-        run: npm run test
+      - name: Run frontend tests
+        run: npm test
 
-      - name: Upload frontend coverage report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: frontend-coverage
-          path: frontend/coverage/
-
-    # ─────────────────────────────────────────────
-  # 3. E2E Tests
   # ─────────────────────────────────────────────
-  e2e-tests:
-    name: "E2E Tests"
+  # POS Unit Tests
+  # ─────────────────────────────────────────────
+  pos-unit-tests:
+    name: POS Unit Tests
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:8
-        env:
-          MYSQL_ALLOW_EMPTY_PASSWORD: yes
-          MYSQL_DATABASE: weightogo_db
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+    defaults:
+      run:
+        working-directory: frontend/POS
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/POS/package-lock.json
 
-      # Backend
-      - name: Install backend dependencies
-        working-directory: backend
-        run: npm ci
-
-      # POS (Playwright Project)
       - name: Install POS dependencies
-        working-directory: frontend/POS
         run: npm ci
 
-      - name: Install Playwright browsers
+      - name: Run POS unit tests
+        run: npm run test:unit
+
+  # ─────────────────────────────────────────────
+  # POS Playwright E2E
+  # ─────────────────────────────────────────────
+  e2e-tests:
+    name: POS E2E Tests
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
         working-directory: frontend/POS
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/POS/package-lock.json
+
+      - name: Install POS dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Wait for MySQL
-        run: |
-          for i in {1..30}; do
-            if mysqladmin ping -h 127.0.0.1 -u root --silent 2>/dev/null; then
-              echo "MySQL is ready"
-              break
-            fi
-            echo "Waiting for MySQL... ($i)"
-            sleep 2
-          done
-
-      - name: Set up database
-        working-directory: backend
-        run: |
-          mysql -h 127.0.0.1 -u root weightogo_db < ../schema.sql
-        env:
-          MYSQL_PWD: ""
-
       - name: Build POS
-        working-directory: frontend/POS
         run: npm run build
 
-      - name: Run Playwright E2E Tests
-        working-directory: frontend/POS
+      - name: Run Playwright Tests
         run: npm run test:e2e
         env:
           NODE_ENV: test
-          DB_HOST: 127.0.0.1
-          DB_USER: root
-          DB_PASSWORD: ""
-          DB_NAME: weightogo_db
-          PORT: 3000
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
 
-      - name: Upload E2E Test Results
-        uses: actions/upload-artifact@v4
+      - name: Upload Playwright Report
         if: always()
-        with:
-          name: e2e-results
-          path: frontend/POS/test-results/
-
-      - name: Upload Screenshots
         uses: actions/upload-artifact@v4
-        if: failure()
         with:
-          name: e2e-screenshots
-          path: frontend/POS/test-results/
+          name: playwright-report
+          path: frontend/POS/playwright-report
 
-  # ─────────────────────────────────────────────
-  # 4. Final
-  # ─────────────────────────────────────────────
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: frontend/POS/test-results
